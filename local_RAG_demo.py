@@ -41,7 +41,7 @@ doc_txt = read_text_file(file_name)
 #     print(line.strip())
 
 
-# 使用目录为段落添加标签
+## 使用目录为段落添加标签
 title_map = { 
     "1-10" : "Course title", 
     "11-28" : "Company Introduction", 
@@ -92,4 +92,7 @@ completion = client.chat.completions.create(
     ],
 )
 print("\nSummary : \n", completion.choices[0].message.content)
+
+
+# Step 3 向量数据库
 
