@@ -84,15 +84,56 @@ Net income $ 29,76日 $4,368 Up 581%
 Net income per diluted share $ 11.93 $ 1.74 Up 586%"""
 print("Table: \n", table)
 
-completion = client.chat.completions.create(
-    model = "ep-20250103223903-7kzhd",  # your model endpoint ID
-    messages = [
-        {"role": "system", "content": "你是豆包，是由字节跳动开发的 AI 人工智能助手"},
-        {"role": "user", "content": f"Summarize the following table: {table}"},
-    ],
-)
-print("\nSummary : \n", completion.choices[0].message.content)
+# completion = client.chat.completions.create(
+#     model = "ep-20250103223903-7kzhd",  # your model endpoint ID
+#     messages = [
+#         {"role": "system", "content": "你是豆包，是由字节跳动开发的 AI 人工智能助手"},
+#         {"role": "user", "content": f"Summarize the following table: {table}"},
+#     ],
+# )
+# print("\nSummary : \n", completion.choices[0].message.content)
 
 
 # Step 3 向量数据库
 
+import chromadb  # 0.5.0
+from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
+
+# 创建一个持久化的数据库实例
+db = chromadb.PersistentClient()
+
+# 创建一个默认嵌入函数实例
+embedding_function = OpenAIEmbeddingFunction(
+    api_key=API_KEY,  # 替换为您的 OpenAI API 密钥
+    api_base=API_URL,
+    model_name="ep-20250104171017-p8sfd"  # 默认模型，可以根据需要更改
+)
+
+# 获取或创建一个名为 "nvidia" 的集合
+collection_name = "nvidia"
+collection = db.get_or_create_collection(
+    name=collection_name,
+    embedding_function=embedding_function
+)
+
+
+# 将文档、ID和元数据添加到集合中
+collection.add(
+    documents=lst_docs,
+    ids=lst_ids,
+    metadatas=lst_metadata,
+    images=None,
+    embeddings=None
+)
+
+print(f"查看集合中的一个样本：")
+print(collection.peek(1))
+
+
+print(f"接下来，尝试查询一些信息：")
+
+query = "课程优势是什么?"
+res_db = collection.query(query_texts=[query])["documents"]
+print(res_db)
+context = ' '.join(res_db[0][0:100]).replace("\n", " ")
+print(context)
