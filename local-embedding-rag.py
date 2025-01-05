@@ -11,6 +11,8 @@ from langchain.text_splitter import CharacterTextSplitter
 import requests
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
+import logging
+# logging.basicConfig(level=logging.DEBUG)
 
 # Step 0: 加载环境变量
 load_dotenv()
@@ -23,12 +25,21 @@ def load_documents():
     documents = loader.load()
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     split_docs = text_splitter.split_documents(documents)
-    print(split_docs)
+    print(f"Split documents type: {type(split_docs)}")
+    print(f"First document type: {type(split_docs[0])}")
+    print(f"First document content type: {type(split_docs[0].page_content)}")
+    print(f"First document content sample: {split_docs[0].page_content[:100]}...")
     return split_docs
 
 # Step 2: 创建嵌入和向量数据库
 def create_vectorstore(documents):
-    embeddings = OpenAIEmbeddings(api_key=API_KEY, model="ep-20250104171017-p8sfd", base_url=API_URL)
+    # 确保输入是字符串格式
+    embeddings = OpenAIEmbeddings(
+                        api_key=API_KEY, 
+                        model="ep-20250104171017-p8sfd", 
+                        base_url=API_URL, 
+                        tiktoken_enabled=False,  # 禁用 tokenize 处理为浮点数
+                    )
     vectorstore = Chroma.from_documents(documents, embeddings, persist_directory="local_db/")
     vectorstore.persist()
     return vectorstore
