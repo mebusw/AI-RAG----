@@ -16,8 +16,10 @@ logging.basicConfig(level=logging.DEBUG)
 
 # Step 0: 加载环境变量
 load_dotenv()
-API_URL = os.getenv("DOUBAO_API_URL", "https://ark.cn-beijing.volces.com/api/v3")
-API_KEY = os.getenv("DOUBAO_API_KEY")
+OPENAI_CHAT_API_URL = os.getenv("OPENAI_CHAT_API_URL", "https://ark.cn-beijing.volces.com/api/v3/chat")
+OPENAI_EMB_API_URL = os.getenv("OPENAI_EMB_API_URL", "https://ark.cn-beijing.volces.com/api/v3")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 
 # Step 1: 加载和预处理文档
 def load_documents():
@@ -31,9 +33,9 @@ def load_documents():
 def create_vectorstore(documents):
     # 确保输入是字符串格式
     embeddings = OpenAIEmbeddings(
-                        api_key=API_KEY, 
+                        api_key=OPENAI_API_KEY, 
                         model="ep-20250104171017-p8sfd", 
-                        base_url="https://ark.cn-beijing.volces.com/api/v3", 
+                        base_url=OPENAI_EMB_API_URL, 
                         tiktoken_enabled=False,  # 禁用 tokenize 处理为浮点数
                     )
     vectorstore = Chroma.from_documents(documents, embeddings, persist_directory="local_db/")
@@ -42,7 +44,7 @@ def create_vectorstore(documents):
 # Step 3: 构建代理
 def build_agent(vectorstore):
     retriever = vectorstore.as_retriever()
-    llm = OpenAI(temperature=0, api_key=API_KEY, model="ep-20250103223903-7kzhd", base_url="https://ark.cn-beijing.volces.com/api/v3/chat")
+    llm = OpenAI(temperature=0, api_key=OPENAI_API_KEY, model="ep-20250103223903-7kzhd", base_url=OPENAI_CHAT_API_URL)
     qa_chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True)
     return qa_chain
     
