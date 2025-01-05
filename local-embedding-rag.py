@@ -12,7 +12,7 @@ import requests
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 import logging
-# logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 # Step 0: 加载环境变量
 load_dotenv()
@@ -25,10 +25,6 @@ def load_documents():
     documents = loader.load()
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     split_docs = text_splitter.split_documents(documents)
-    print(f"Split documents type: {type(split_docs)}")
-    print(f"First document type: {type(split_docs[0])}")
-    print(f"First document content type: {type(split_docs[0].page_content)}")
-    print(f"First document content sample: {split_docs[0].page_content[:100]}...")
     return split_docs
 
 # Step 2: 创建嵌入和向量数据库
@@ -37,28 +33,25 @@ def create_vectorstore(documents):
     embeddings = OpenAIEmbeddings(
                         api_key=API_KEY, 
                         model="ep-20250104171017-p8sfd", 
-                        base_url=API_URL, 
+                        base_url="https://ark.cn-beijing.volces.com/api/v3", 
                         tiktoken_enabled=False,  # 禁用 tokenize 处理为浮点数
                     )
     vectorstore = Chroma.from_documents(documents, embeddings, persist_directory="local_db/")
-    vectorstore.persist()
     return vectorstore
 
 # Step 3: 构建代理
 def build_agent(vectorstore):
     retriever = vectorstore.as_retriever()
-    llm = OpenAI(temperature=0, api_key=API_KEY, model="ep-20250103223903-7kzhd", base_url=API_URL)
+    llm = OpenAI(temperature=0, api_key=API_KEY, model="ep-20250103223903-7kzhd", base_url="https://ark.cn-beijing.volces.com/api/v3/chat")
     qa_chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True)
     return qa_chain
     
 # Step 4: 主函数，运行代理
 def main():
     # 加载或构建向量数据库
-    try:
-        vectorstore = Chroma(persist_directory="local_db/")
-    except Exception:
-        documents = load_documents()
-        vectorstore = create_vectorstore(documents)
+    vectorstore = Chroma(persist_directory="local_db/")
+    documents = load_documents()
+    vectorstore = create_vectorstore(documents)
     print(vectorstore)
     agent = build_agent(vectorstore)
 
