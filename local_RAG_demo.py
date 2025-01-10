@@ -6,8 +6,8 @@ from openai import OpenAI
 
 # Step 1: 加载环境变量
 load_dotenv()
-API_URL = os.getenv("DOUBAO_API_URL", "https://ark.cn-beijing.volces.com/api/v3")
-API_KEY = os.getenv("DOUBAO_API_KEY")
+API_URL = os.getenv("OPENAI_API_URL", "https://ark.cn-beijing.volces.com/api/v3")
+API_KEY = os.getenv("OPENAI_API_KEY")
 
 client = OpenAI(
     api_key = API_KEY,
