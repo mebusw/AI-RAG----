@@ -143,6 +143,7 @@ def buildUI():
     ## 布局
     st.title("Write your questions")
     st.sidebar.title("Chat History")
+
     app = st.session_state
     if 'messages' not in app:
         app['messages'] = [{"role": "assistant", "content": "I'm ready to retrieve information"}]
@@ -158,26 +159,32 @@ def buildUI():
         elif msg["role"] == "assistant":
             st.chat_message(msg["role"], avatar="🤖").write(msg["content"])
 
+    # st.write(st.session_state)
     ## 聊天
     if txt := st.chat_input():
         ### 用户写入
         app["messages"].append({"role": "user", "content": txt})
         st.chat_message("user", avatar="🧑").write(txt)
-        ### AI 使用聊天流式响应
         app["full_response"] = ""
+    
+        ### AI 使用聊天流式响应
+        # with st.chat_message("assistant", avatar="🤖"):
+        #     for chunk in ai.respond(app["messages"], use_knowledge=True):
+        #         app["full_response"] += chunk
+        #         st.write(chunk)
+
+        ### AI 非流式响应
         with st.chat_message("assistant", avatar="🤖"):
-            # for chunk in ai.respond(app["messages"], use_knowledge=True):
-            #     app["full_response"] += chunk
-            #     st.write(chunk)
             chunk = ai.respond(app["messages"], use_knowledge=True)
-            print(f"{type(chunk)}>>>> {chunk}")
             app["full_response"] += chunk["result"]
-            st.write(chunk["result"])
+            st.write(app["full_response"])
+        
             
         ### 显示历史记录
-        app['history'].append(": " + txt)
-        app['history'].append(": " + app["full_response"])
-        st.sidebar.markdown("<br />".join(app['history']) + "<br /><br />", unsafe_allow_html=True)
+        app["messages"].append({"role": "assistant", "content": app["full_response"]})
+        app['history'].append("🧑: " + txt)
+        app['history'].append("🤖: " + app["full_response"])
+        st.sidebar.markdown("<br/>".join(app['history']) + "<br/><br/>", unsafe_allow_html=True)
 
 class AI:
     def __init__(self):
