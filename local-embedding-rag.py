@@ -120,19 +120,93 @@ def build_agent(vectorstore):
     
 # Step 4: 主函数，运行代理
 def main():
-    vectorstore = load_or_create_vectorstore()
-    agent = build_agent(vectorstore)
 
-    while True:
-        print("\nAI Agent is ready. Type your questions (type 'exit' to quit).")
-        query = input(">>> You: ")
-        if query.lower() == "exit":
-            break
-        
-        result = agent.invoke({"query": query})
-        print(">>> AI: ", result["result"])
-        print("Sources:", [doc.metadata["source"] for doc in result["source_documents"]])
+    def _main_loop():
+        vectorstore = load_or_create_vectorstore()
+        agent = build_agent(vectorstore)
+        while True:
+            print("\nAI Agent is ready. Type your questions (type 'exit' to quit).")
+            query = input(">>> You: ")
+            if query.lower() == "exit":
+                break
+            
+            result = agent.invoke({"query": query})
+            print(">>> AI: ", result["result"])
+            print("Sources:", [doc.metadata["source"] for doc in result["source_documents"]])
+    # _main_loop()
+    buildUI()
 
 
+# Step 4A: Streamlit是构建快速Web应用程序最常用的Python库，因为它通过其流式功能简化了NLP应用程序的开发。首先，定义布局：我的屏幕应有一个侧边栏，用户可以在其中查看聊天历史记录。
+import streamlit as st
+def buildUI():
+    ## 布局
+    st.title("Write your questions")
+    st.sidebar.title("Chat History")
+    app = st.session_state
+    if 'messages' not in app:
+        app['messages'] = [{"role": "assistant", "content": "I'm ready to retrieve information"}]
+    if 'history' not in app:
+        app['history'] = []
+    if 'full_response' not in app:
+        app['full_response'] = ''
+
+    ## 保持消息在聊天中
+    for msg in app["messages"]:
+        if msg["role"] == "user":
+            st.chat_message(msg["role"], avatar="🧑").write(msg["content"])
+        elif msg["role"] == "assistant":
+            st.chat_message(msg["role"], avatar="🤖").write(msg["content"])
+
+    ## 聊天
+    if txt := st.chat_input():
+        ### 用户写入
+        app["messages"].append({"role": "user", "content": txt})
+        st.chat_message("user", avatar="🧑").write(txt)
+        ### AI 使用聊天流式响应
+        app["full_response"] = ""
+        with st.chat_message("assistant", avatar="🤖"):
+            # for chunk in ai.respond(app["messages"], use_knowledge=True):
+            #     app["full_response"] += chunk
+            #     st.write(chunk)
+            chunk = ai.respond(app["messages"], use_knowledge=True)
+            print(f"{type(chunk)}>>>> {chunk}")
+            app["full_response"] += chunk["result"]
+            st.write(chunk["result"])
+            
+        ### 显示历史记录
+        app['history'].append(": " + txt)
+        app['history'].append(": " + app["full_response"])
+        st.sidebar.markdown("<br />".join(app['history']) + "<br /><br />", unsafe_allow_html=True)
+
+class AI:
+    def __init__(self):
+        self.vectorstore = load_or_create_vectorstore()
+        self.agent = build_agent(self.vectorstore)
+
+    def respond(self, lst_messages, use_knowledge=False):
+        # q = lst_messages[-1]["content"]
+        # context = self.query(q)
+        if use_knowledge:
+            prompt = "Give the most accurate answer using your knowledge and the following information:"
+        else:
+            prompt = "Give the most accurate answer using only the following information:"
+        res = self.agent.invoke({"query": lst_messages[-1]["content"]})
+        return res
+
+        # res_ai = ollama.chat(
+        #     model="phi3",
+        #     messages=[
+        #         {"role": "system", "content": prompt},
+        #         *lst_messages
+        #     ],
+        #     stream=True
+        # )
+        # for res in res_ai:
+        #     chunk = res["message"]["content"]
+        #     app["full_response"] += chunk
+        #     yield chunk
+
+ai = AI()
 if __name__ == "__main__":
     main()
