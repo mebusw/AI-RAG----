@@ -7,6 +7,7 @@ import base64
 from langchain_chroma import Chroma
 from langchain_openai import OpenAI, OpenAIEmbeddings, ChatOpenAI
 from langchain.chains import create_retrieval_chain, RetrievalQA
+from langchain.callbacks.base import BaseCallbackHandler
 from pydantic import BaseModel, Field
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import CharacterTextSplitter
@@ -93,7 +94,6 @@ def load_images():
     print(res)
 
 
-
 # Step 2: 加载或创建向量数据库
 def load_or_create_vectorstore():
     embeddings = OpenAIEmbeddings(
@@ -111,10 +111,47 @@ def load_or_create_vectorstore():
         documents = load_documents()
         return Chroma.from_documents(documents, embeddings, persist_directory="local_db/")
 
+from typing import Generator
+from queue import Queue
+
+class StreamingCallbackHandler(BaseCallbackHandler):
+    def on_llm_new_token(self, token: str, **kwargs):
+        self.queue.put(token)
+
+    def __init__(self):
+        self._generator = None
+        self.queue = Queue()
+
+    def start_streaming(self) -> Generator[str, None, None]:
+        """
+        启动一个生成器，用于消费 on_llm_new_token 中的数据。
+        """
+        if self._generator is not None:
+            try:
+                while True:
+                    token = self.queue.get(block=True) 
+                    if token is None:  # 检查是否结束
+                        break
+                    yield token
+            except StopIteration:
+                # 生成器已被关闭
+                pass
+
+    def set_generator(self, generator: Generator[str, None, None]):
+        """
+        设置一个生成器实例。
+        """
+        self._generator = generator
+
+handler = StreamingCallbackHandler()
+
+
 # Step 3: 构建代理
-def build_agent(vectorstore):
+def build_agent(vectorstore, streaming=False):
     retriever = vectorstore.as_retriever()
-    llm = ChatOpenAI(temperature=0, api_key=OPENAI_API_KEY, model="ep-20250103223903-7kzhd", base_url=OPENAI_API_URL)
+    llm = ChatOpenAI(temperature=0, api_key=OPENAI_API_KEY, model="ep-20250103223903-7kzhd", base_url=OPENAI_API_URL,
+                streaming=streaming,
+                callbacks=[handler],)
     qa_chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True)
     return qa_chain
     
@@ -159,7 +196,6 @@ def buildUI():
         elif msg["role"] == "assistant":
             st.chat_message(msg["role"], avatar="🤖").write(msg["content"])
 
-    # st.write(st.session_state)
     ## 聊天
     if txt := st.chat_input():
         ### 用户写入
@@ -167,29 +203,36 @@ def buildUI():
         st.chat_message("user", avatar="🧑").write(txt)
         app["full_response"] = ""
     
-        ### AI 使用聊天流式响应
+        # ### AI 使用聊天流式响应
         # with st.chat_message("assistant", avatar="🤖"):
-        #     for chunk in ai.respond(app["messages"], use_knowledge=True):
-        #         app["full_response"] += chunk
-        #         st.write(chunk)
+        #     ai.respond(app["messages"], use_knowledge=True)
+        #     for chunk in handler._generator:
+        #         print(f"chunk={chunk}")
+        #         if chunk is not None:
+        #             st.write(chunk) #FIXME 流式下，st.write没办法不换行
+        #             app["full_response"] += str(chunk)
 
         ### AI 非流式响应
         with st.chat_message("assistant", avatar="🤖"):
             chunk = ai.respond(app["messages"], use_knowledge=True)
             app["full_response"] += chunk["result"]
             st.write(app["full_response"])
-        
-            
+
         ### 显示历史记录
         app["messages"].append({"role": "assistant", "content": app["full_response"]})
         app['history'].append("🧑: " + txt)
         app['history'].append("🤖: " + app["full_response"])
         st.sidebar.markdown("<br/>".join(app['history']) + "<br/><br/>", unsafe_allow_html=True)
 
+
 class AI:
     def __init__(self):
         self.vectorstore = load_or_create_vectorstore()
-        self.agent = build_agent(self.vectorstore)
+        self.agent = build_agent(self.vectorstore, streaming=False)
+        # 创建生成器并启动
+        generator = handler.start_streaming()
+        handler.set_generator(generator)
+
 
     def respond(self, lst_messages, use_knowledge=False):
         # q = lst_messages[-1]["content"]
@@ -198,21 +241,9 @@ class AI:
             prompt = "Give the most accurate answer using your knowledge and the following information:"
         else:
             prompt = "Give the most accurate answer using only the following information:"
+
         res = self.agent.invoke({"query": lst_messages[-1]["content"]})
         return res
-
-        # res_ai = ollama.chat(
-        #     model="phi3",
-        #     messages=[
-        #         {"role": "system", "content": prompt},
-        #         *lst_messages
-        #     ],
-        #     stream=True
-        # )
-        # for res in res_ai:
-        #     chunk = res["message"]["content"]
-        #     app["full_response"] += chunk
-        #     yield chunk
 
 ai = AI()
 if __name__ == "__main__":
