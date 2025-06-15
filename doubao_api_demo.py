@@ -12,6 +12,8 @@ API_KEY = os.getenv("OPENAI_API_KEY")
 CHAT_MODEL = os.getenv("CHAT_MODEL")
 EMB_MODEL = os.getenv("EMB_MODEL")
 
+print(f"{API_URL}, {API_KEY}, {CHAT_MODEL}, {EMB_MODEL}")
+
 client = OpenAI(
     api_key = API_KEY,
     base_url = API_URL,
