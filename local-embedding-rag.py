@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import ollama
 import base64
 from langchain_chroma import Chroma
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain.chains import create_retrieval_chain, RetrievalQA
 from langchain.callbacks.base import BaseCallbackHandler
 from pydantic import BaseModel, Field
@@ -114,6 +114,7 @@ class CustomOpenAICompatibleEmbeddings(Embeddings):
         """Embed a list of documents."""
         # Ensure the input is a list of strings, as expected by OpenAI client
         response = self.client.embeddings.create(input=texts, model=self.model_name)
+        print(f"Embedding doc response: {response}")
         return [data.embedding for data in response.data]
 
     def embed_query(self, text: str) -> List[float]:
@@ -196,8 +197,7 @@ def main():
             result = agent.invoke({"query": query})
             print(">>> AI: ", result["result"])
             print("Sources:", [doc.metadata["source"] for doc in result["source_documents"]])
-    # _main_loop()
-    buildUI()
+    _main_loop()
 
 
 # Step 4A: Streamlit是构建快速Web应用程序最常用的Python库，因为它通过其流式功能简化了NLP应用程序的开发。首先，定义布局：我的屏幕应有一个侧边栏，用户可以在其中查看聊天历史记录。
@@ -243,6 +243,8 @@ def buildUI():
             chunk = ai.respond(app["messages"], use_knowledge=True)
             app["full_response"] += chunk["result"]
             st.write(app["full_response"])
+            print("Sources:", [doc.metadata["source"] for doc in chunk["source_documents"]])
+
 
         ### 显示历史记录
         app["messages"].append({"role": "assistant", "content": app["full_response"]})
@@ -261,16 +263,16 @@ class AI:
 
 
     def respond(self, lst_messages, use_knowledge=False):
-        # q = lst_messages[-1]["content"]
-        # context = self.query(q)
         if use_knowledge:
-            prompt = "Give the most accurate answer using your knowledge and the following information:"
+            prompt = "Give the most accurate answer using your knowledge to user's query.\n'{query}':"
         else:
-            prompt = "Give the most accurate answer using only the following information:"
+            prompt = "Give the most accurate answer without external knowledge to user's query.\n'{query}':"
 
-        res = self.agent.invoke({"query": lst_messages[-1]["content"]})
+        res = self.agent.invoke({"query": prompt + lst_messages[-1]["content"]})
         return res
 
-ai = AI()
+
 if __name__ == "__main__":
-    main()
+    ai = AI()
+    buildUI()
+    # main()
