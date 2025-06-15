@@ -1,10 +1,13 @@
 import streamlit as st
 import requests
 import json
-# from langchain.callbacks.base import BaseCallbackHandler # Not used
-# from typing import Generator # Not used
-# from queue import Queue # Not used
+import os
+from dotenv import load_dotenv
 
+# Step 0: 加载环境变量
+load_dotenv()
+DIFY_URL = os.getenv("DIFY_URL", "http://118.195.145.124:8091/v1/chat-messages")
+DIFY_API_KEY = os.getenv("DIFY_API_KEY")
 
 def buildUI():
     ## 布局
@@ -16,12 +19,12 @@ def buildUI():
         app['messages'] = [{"role": "assistant", "content": "你好！我是雅思写作AI考官，请提出你的写作题目或问题。"}] # Changed initial message
     if 'history' not in app:
         app['history'] = []
-    # 'full_response' will be built per response, so initializing it here might not be necessary
-    # if 'full_response' not in app:
-    #     app['full_response'] = ''
     if 'conversation_id' not in app: # Added for Dify
         app['conversation_id'] = ""
-
+    if 'streaming_in_progress' not in app:
+        app['streaming_in_progress'] = False
+    if 'stop_streaming_flag' not in app:
+        app['stop_streaming_flag'] = False
 
     ## 保持消息在聊天中
     for msg in app["messages"]:
@@ -32,27 +35,36 @@ def buildUI():
     if user_query := st.chat_input("请输入你的问题或写作任务..."): # Changed variable name for clarity
         ### 用户写入
         app["messages"].append({"role": "user", "content": user_query})
-        st.chat_message("user", avatar="🧑").write(user_query)
+        st.chat_message("user", avatar="🧑",).write(user_query)
         
         current_full_response = "" # Accumulator for the current response
         
+
         # ### AI 使用聊天流式响应
         with st.chat_message("assistant", avatar="🤖"):
+            app['streaming_in_progress'] = True
+            if st.button("Stop Streaming", key="stop_button", disabled=not app['streaming_in_progress']):
+                app['stop_streaming_flag'] = True
+                ai.stop_streaming() # Stop the AI streaming
+                app['streaming_in_progress'] = False # Indicate streaming is no longer in progress
+                st.balloons("Streaming stopped by user.")
+
             response_placeholder = st.empty() # Create a placeholder
-            
             for chunk in ai.respond(app["messages"], use_knowledge=True, conversation_id=app.get("conversation_id", "")):
                 # print(f"Raw chunk from Dify: {chunk}") # For debugging the raw stream
                 if chunk is not None:
-                    PREFIX = "data: "
                     # Dify might send keep-alive pings or other non-JSON lines
                     if not chunk.strip() or chunk.strip() == "[DONE]": # Handle empty lines or Dify's [DONE] signal
                         if chunk.strip() == "[DONE]":
                             print("Stream finished with [DONE]")
                         continue
+                    if chunk.startswith("event: ping"):
+                        continue
 
                     try:
                         # Remove prefix if present
-                        json_string = chunk[len(PREFIX):] if chunk.startswith(PREFIX) else chunk
+                        json_string = chunk[len("data: "):] if chunk.startswith("data: ") else chunk
+                        
                         
                         # Attempt to parse JSON
                         chunk_json = json.loads(json_string)
@@ -78,7 +90,7 @@ def buildUI():
                     except Exception as e:
                         print(f"An unexpected error processing chunk: '{chunk}'. Error: {e}")
             
-            response_placeholder.markdown(current_full_response) # Display final response without cursor
+            response_placeholder.markdown(current_full_response, unsafe_allow_html=True) # Display final response without cursor
 
         ### 显示历史记录
         app["messages"].append({"role": "assistant", "content": current_full_response})
@@ -88,25 +100,19 @@ def buildUI():
         st.sidebar.markdown("<br/>".join(app['history']) + "<br/><br/>", unsafe_allow_html=True)
 
 
+
 class AI:
     def __init__(self):
-        # It's good practice to define constants like URL and API Key at a class or module level
-        # or pass them during initialization if they can change.
-        self.DIFY_URL = "http://118.195.145.124:8091/v1/chat-messages"
-        self.DIFY_API_KEY = "app-OY2WgsPvHexb17EumGVW0JQi"
         self.headers = {
-            'Authorization': f'Bearer {self.DIFY_API_KEY}',
+            'Authorization': f'Bearer {DIFY_API_KEY}',
             'Content-Type': 'application/json',
         }
+        self.stop_flag_key = False
+
+    def stop_streaming(self):
+        self.stop_flag_key = True
 
     def respond(self, lst_messages, use_knowledge=False, conversation_id=""):
-        # The prompt logic seems specific to a RAG setup, might not be directly used by Dify
-        # Dify usually takes the raw query.
-        # if use_knowledge:
-        #     prompt = "Give the most accurate answer using your knowledge to user's query.\n'{query}':"
-        # else:
-        #     prompt = "Give the most accurate answer without external knowledge to user's query.\n'{query}':"
-
         payload = {
             "inputs": {}, # Add any specific inputs Dify expects for your app
             "query": lst_messages[-1]["content"], # The actual user query
@@ -117,10 +123,13 @@ class AI:
         }
 
         try:
-            response = requests.post(self.DIFY_URL, headers=self.headers, json=payload, stream=True) # Use json=payload
+            response = requests.post(DIFY_URL, headers=self.headers, json=payload, stream=True) # Use json=payload
             response.raise_for_status() # Check for HTTP errors
 
             for line in response.iter_lines():
+                # Check the stop flag in session_state
+                if self.stop_flag_key:
+                    break # Exit the loop if stop button was pressed
                 if line:
                     decoded_line = line.decode('utf-8')
                     yield decoded_line

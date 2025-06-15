@@ -26,3 +26,6 @@ streamlit run local-embedding-rag.py
 ## 注意
 - 免费的LLM可能会限流，导致异常，可以改为充值的LLM
 - 更换embbeding模型后，必须删掉原来的向量数据库文件
+
+## 部署
+提交github后可以部署到streamlit社区版免费云，https://ielts-writing-ai-teacher.streamlit.app/
