@@ -43,17 +43,19 @@ def buildUI():
             for chunk in ai.respond(app["messages"], use_knowledge=True, conversation_id=app.get("conversation_id", "")):
                 # print(f"Raw chunk from Dify: {chunk}") # For debugging the raw stream
                 if chunk is not None:
-                    PREFIX = "data: "
                     # Dify might send keep-alive pings or other non-JSON lines
                     if not chunk.strip() or chunk.strip() == "[DONE]": # Handle empty lines or Dify's [DONE] signal
                         if chunk.strip() == "[DONE]":
                             print("Stream finished with [DONE]")
                         continue
+                    if chunk.startswith("event: ping"):
+                        # Handle Dify's ping event, which is often used to keep the connection alive
+                        continue
 
                     try:
                         # Remove prefix if present
-                        json_string = chunk[len(PREFIX):] if chunk.startswith(PREFIX) else chunk
-                        
+                        json_string = chunk[len("data: "):] if chunk.startswith("data: ") else chunk
+
                         # Attempt to parse JSON
                         chunk_json = json.loads(json_string)
                         # print(f"Parsed chunk_json: {chunk_json}") # For debugging parsed JSON
