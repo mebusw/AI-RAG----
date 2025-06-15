@@ -4,10 +4,14 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# Step 1: 加载环境变量
+# Step 0: 加载环境变量
 load_dotenv()
-API_URL = os.getenv("OPENAI_API_URL", "https://ark.cn-beijing.volces.com/api/v3")
+API_URL = os.getenv("OPENAI_API_URL")
 API_KEY = os.getenv("OPENAI_API_KEY")
+CHAT_MODEL = os.getenv("CHAT_MODEL")
+EMB_MODEL = os.getenv("EMB_MODEL")
+
+print(f"{API_URL}, {API_KEY}, {CHAT_MODEL}, {EMB_MODEL}")
 
 client = OpenAI(
     api_key = API_KEY,
@@ -106,7 +110,7 @@ db = chromadb.PersistentClient()
 embedding_function = OpenAIEmbeddingFunction(
     api_key=API_KEY,  # 替换为您的 OpenAI API 密钥
     api_base=API_URL,
-    model_name="ep-20250104171017-p8sfd"  # 默认模型，可以根据需要更改
+    model_name=EMB_MODEL  # 默认模型，可以根据需要更改
 )
 
 # 获取或创建一个名为 "nvidia" 的集合
