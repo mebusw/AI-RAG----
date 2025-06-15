@@ -7,8 +7,10 @@ from langchain_core.embeddings import Embeddings
 
 # Step 0: 加载环境变量
 load_dotenv()
-API_URL = os.getenv("OPENAI_API_URL", "https://ark.cn-beijing.volces.com/api/v3")
+API_URL = os.getenv("OPENAI_API_URL")
 API_KEY = os.getenv("OPENAI_API_KEY")
+CHAT_MODEL = os.getenv("CHAT_MODEL")
+EMB_MODEL = os.getenv("EMB_MODEL")
 
 client = OpenAI(
     api_key = API_KEY,
@@ -20,7 +22,7 @@ def test_non_streaming():
     try:
         print("----- standard request -----")
         completion = client.chat.completions.create(
-            model = "ep-20250103223903-7kzhd",  # your model endpoint ID
+            model = CHAT_MODEL,  # your model endpoint ID
             messages = [
                 {"role": "system", "content": "你是豆包，是由字节跳动开发的 AI 人工智能助手"},
                 {"role": "user", "content": "常见的十字花科植物有哪些？"},
@@ -37,7 +39,7 @@ def test_streaming():
     try:
         print("----- streaming request -----")
         stream = client.chat.completions.create(
-            model = "ep-20250103223903-7kzhd",  # your model endpoint ID
+            model = CHAT_MODEL,  # your model endpoint ID
             messages = [
                 {"role": "system", "content": "你是豆包，是由字节跳动开发的 AI 人工智能助手"},
                 {"role": "user", "content": "常见的十字花科植物有哪些？"},
@@ -56,12 +58,11 @@ test_streaming()
 
 
 # Embedding:
-
 def test_embedding():
     print("----- embedding request -----")
     try:
         completion = client.embeddings.create(
-            model="ep-20250104171017-p8sfd",  # your model endpoint ID
+            model=EMB_MODEL,  # your model endpoint ID
             input="hi",
         )
         print(f"Successfully embedded. Vector length: {len(completion.data[0].embedding)}")
@@ -73,7 +74,7 @@ test_embedding()
 def test_embedding_with_langchain():
     print("----- embedding request with Langchain-----")
     try:
-        embeddings = OpenAIEmbeddings(model="ep-20250104171017-p8sfd", 
+        embeddings = OpenAIEmbeddings(model=EMB_MODEL, 
                                       api_key=API_KEY, 
                                       base_url=API_URL,
                                       tiktoken_enabled=False)
@@ -114,7 +115,7 @@ def test_custom_embedding_with_langchain():
         embeddings = CustomOpenAICompatibleEmbeddings(
             api_key=API_KEY,
             base_url=API_URL,
-            model_name="ep-20250104171017-p8sfd" # Use the exact model name your service expects
+            model_name=EMB_MODEL # Use the exact model name your service expects
         )
         test_text = "hi"
         print(f"Attempting to embed: '{test_text}' (Type: {type(test_text)})")
