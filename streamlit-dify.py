@@ -48,8 +48,7 @@ def buildUI():
                         if chunk.strip() == "[DONE]":
                             print("Stream finished with [DONE]")
                         continue
-                    if chunk.startswith("event: ping"):
-                        # Handle Dify's ping event, which is often used to keep the connection alive
+                    if chunk.startswith("event: ping"): # Handle Dify's ping event, which is often used to keep the connection alive
                         continue
 
                     try:
@@ -80,13 +79,12 @@ def buildUI():
                     except Exception as e:
                         print(f"An unexpected error processing chunk: '{chunk}'. Error: {e}")
             
-            response_placeholder.markdown(current_full_response) # Display final response without cursor
+            response_placeholder.markdown(current_full_response, unsafe_allow_html=True) # Display final response without cursor
 
         ### 显示历史记录
         app["messages"].append({"role": "assistant", "content": current_full_response})
         app['history'].append("🧑: " + user_query)
         app['history'].append("🤖: " + current_full_response)
-        # Consider limiting history display or using a more robust method if it gets very long
         st.sidebar.markdown("<br/>".join(app['history']) + "<br/><br/>", unsafe_allow_html=True)
 
 
