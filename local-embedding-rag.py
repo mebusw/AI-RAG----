@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import ollama
 import base64
 from langchain_chroma import Chroma
-from langchain_openai import OpenAI, OpenAIEmbeddings, ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.chains import create_retrieval_chain, RetrievalQA
 from langchain.callbacks.base import BaseCallbackHandler
 from pydantic import BaseModel, Field
@@ -15,13 +15,19 @@ import requests
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 import logging
+from openai import OpenAI
+from langchain_core.embeddings import Embeddings
+from typing import List
 # logging.basicConfig(level=logging.DEBUG)
 
 # Step 0: 加载环境变量
 load_dotenv()
-OPENAI_API_URL = os.getenv("OPENAI_API_URL", "https://ark.cn-beijing.volces.com/api/v3")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+API_URL = os.getenv("OPENAI_API_URL")
+API_KEY = os.getenv("OPENAI_API_KEY")
+CHAT_MODEL = os.getenv("CHAT_MODEL")
+EMB_MODEL = os.getenv("EMB_MODEL")
 
+print(f"{API_URL}, {API_KEY}, {CHAT_MODEL}, {EMB_MODEL}")
 
 # Step 1.1 从PDF文档提起文本
 # 先将文档转换为图像，然后，使用Tesseract识别图像中的文本。Tesseract是HP在1985年开发的主要OCR系统，目前由谷歌维护。
@@ -95,12 +101,32 @@ def load_images():
 
 
 # Step 2: 加载或创建向量数据库
+class CustomOpenAICompatibleEmbeddings(Embeddings):
+    """
+    Custom Embeddings class to interact directly with an OpenAI-compatible API,
+    bypassing Langchain's default model validation.
+    """
+    def __init__(self, api_key: str, base_url: str, model: str):
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.model_name = model
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Embed a list of documents."""
+        # Ensure the input is a list of strings, as expected by OpenAI client
+        response = self.client.embeddings.create(input=texts, model=self.model_name)
+        return [data.embedding for data in response.data]
+
+    def embed_query(self, text: str) -> List[float]:
+        """Embed a single query string."""
+        # Ensure the input is a list containing the single string
+        response = self.client.embeddings.create(input=[text], model=self.model_name)
+        return response.data[0].embedding
+
 def load_or_create_vectorstore():
-    embeddings = OpenAIEmbeddings(
-                    api_key=OPENAI_API_KEY, 
-                    model="ep-20250104171017-p8sfd", 
-                    base_url=OPENAI_API_URL, 
-                    tiktoken_enabled=False
+    embeddings = CustomOpenAICompatibleEmbeddings(
+                    api_key=API_KEY, 
+                    model=EMB_MODEL, 
+                    base_url=API_URL, 
                 )
 
     if os.path.exists("local_db"):
@@ -149,7 +175,7 @@ handler = StreamingCallbackHandler()
 # Step 3: 构建代理
 def build_agent(vectorstore, streaming=False):
     retriever = vectorstore.as_retriever()
-    llm = ChatOpenAI(temperature=0, api_key=OPENAI_API_KEY, model="ep-20250103223903-7kzhd", base_url=OPENAI_API_URL,
+    llm = ChatOpenAI(temperature=0, api_key=API_KEY, model=CHAT_MODEL, base_url=API_URL,
                 streaming=streaming,
                 callbacks=[handler],)
     qa_chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True)
