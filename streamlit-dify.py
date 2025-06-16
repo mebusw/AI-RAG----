@@ -1,9 +1,13 @@
 import streamlit as st
 import requests
 import json
-# from langchain.callbacks.base import BaseCallbackHandler # Not used
-# from typing import Generator # Not used
-# from queue import Queue # Not used
+import os
+from dotenv import load_dotenv
+
+# Step 0: 加载环境变量
+load_dotenv()
+DIFY_URL = os.getenv("DIFY_URL")
+DIFY_API_KEY = os.getenv("DIFY_API_KEY")
 
 
 def buildUI():
@@ -16,9 +20,6 @@ def buildUI():
         app['messages'] = [{"role": "assistant", "content": "你好！我是雅思写作AI考官，请提出你的写作题目或问题。"}] # Changed initial message
     if 'history' not in app:
         app['history'] = []
-    # 'full_response' will be built per response, so initializing it here might not be necessary
-    # if 'full_response' not in app:
-    #     app['full_response'] = ''
     if 'conversation_id' not in app: # Added for Dify
         app['conversation_id'] = ""
 
@@ -92,21 +93,12 @@ class AI:
     def __init__(self):
         # It's good practice to define constants like URL and API Key at a class or module level
         # or pass them during initialization if they can change.
-        self.DIFY_URL = "http://118.195.145.124:8091/v1/chat-messages"
-        self.DIFY_API_KEY = "app-OY2WgsPvHexb17EumGVW0JQi"
         self.headers = {
-            'Authorization': f'Bearer {self.DIFY_API_KEY}',
+            'Authorization': f'Bearer {DIFY_API_KEY}',
             'Content-Type': 'application/json',
         }
 
     def respond(self, lst_messages, use_knowledge=False, conversation_id=""):
-        # The prompt logic seems specific to a RAG setup, might not be directly used by Dify
-        # Dify usually takes the raw query.
-        # if use_knowledge:
-        #     prompt = "Give the most accurate answer using your knowledge to user's query.\n'{query}':"
-        # else:
-        #     prompt = "Give the most accurate answer without external knowledge to user's query.\n'{query}':"
-
         payload = {
             "inputs": {}, # Add any specific inputs Dify expects for your app
             "query": lst_messages[-1]["content"], # The actual user query
@@ -117,7 +109,7 @@ class AI:
         }
 
         try:
-            response = requests.post(self.DIFY_URL, headers=self.headers, json=payload, stream=True) # Use json=payload
+            response = requests.post(DIFY_URL, headers=self.headers, json=payload, stream=True) # Use json=payload
             response.raise_for_status() # Check for HTTP errors
 
             for line in response.iter_lines():
