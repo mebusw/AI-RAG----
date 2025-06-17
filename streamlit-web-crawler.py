@@ -10,10 +10,20 @@ import time
 import hashlib # 用于生成更唯一的图片文件名
 
 # --- 配置 ---
-BASE_URL = 'https://www.ielts-mentor.com/writing-sample/academic-writing-task-1'
+BASE_URL = 'https://www.ielts-mentor.com/writing-sample/writing-task-2'
 OUTPUT_DIR = 'output'
 MARKDOWN_DIR = os.path.join(OUTPUT_DIR, 'markdown')
 IMAGES_DIR = os.path.join(OUTPUT_DIR, 'images')
+
+## TODO
+help="""
+ielts-mentor.com网站上的作文为3类：
+- A类小作文。目录链接 https://www.ielts-mentor.com/writing-sample/academic-writing-task-1?start=0，详情链接形如 https://www.ielts-mentor.com/writing-sample/academic-writing-task-1/1001-numbers-of-male-and-female-research-students-at-us-university
+- G类小作文，目录链接 https://www.ielts-mentor.com/writing-sample/gt-writing-task-1，详情链接形如 https://www.ielts-mentor.com/writing-sample/gt-writing-task-1/4117-you-started-in-your-present-job-two-years-ago
+- 大作文，目录链接 https://www.ielts-mentor.com/writing-sample/writing-task-2，详情链接形如 https://www.ielts-mentor.com/writing-sample/writing-task-2/4083-success-in-life-comes-from-hard-work-dedication-and-motivation
+
+保存下来的图文，需要处理，比如恢复图片链接，以及利用正则去除 'Rating' 字样之后无用评论
+"""
 
 # 请求头，模拟浏览器访问
 HEADERS = {
@@ -148,7 +158,7 @@ def scrape_ielts_samples_to_markdown(progress_bar_placeholder, status_text_place
                 found_valid_links_on_this_page = []
                 for link_tag in links_on_page_elements:
                     href = link_tag.get('href')
-                    if href and '/writing-sample/academic-writing-task-1/' in href and not href.endswith('/academic-writing-task-1'):
+                    if href and '/writing-sample/writing-task-2/' in href and not href.endswith('/writing-task-2'):
                         full_url = urljoin("https://www.ielts-mentor.com", href)
                         if full_url not in all_links:
                             all_links.add(full_url)
