@@ -121,3 +121,7 @@ cython_debug/
 # Chroma vector DB
 local_db/
 chroma/
+
+# miscellaneous
+output/
+.streamlit/
