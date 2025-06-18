@@ -316,9 +316,9 @@ def scrape_ielts_samples_to_markdown(progress_bar_placeholder, status_text_place
                         if element.name == 'p':
                             # Get text, ensuring spaces between inline elements, then strip leading/trailing whitespace
                             p_text = element.get_text(separator=' ', strip=True)
-                            if p_text: # Only add if paragraph has content
+                            if p_text:  # Only add if paragraph has content
                                 raw_content_parts.append(p_text + '\n\n') # Changed to raw_content_parts
-                        elif element.name and element.name.startswith('h'):
+                        elif element.name and re.fullmatch(r"h[1-6]", element.name): # More specific check for h1-h6 tags
                             level = int(element.name[1]) # h1, h2, etc.
                             raw_content_parts.append('#' * level + ' ' + element.get_text(strip=True) + '\n\n')
                         elif element.name == 'ul' or element.name == 'ol':
